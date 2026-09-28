@@ -1,0 +1,45 @@
+# Local full-stack environment: MongoDB + API + client (nginx).
+#
+#   docker compose up --build        # build images and start everything
+#   open http://localhost:8080       # client; API is on http://localhost:5000/api
+#
+# Seed the two test accounts and sample tasks (run once the stack is up):
+#   docker compose exec server node scripts/seed.js
+#
+# Override the JWT secret by exporting JWT_SECRET or putting it in a root .env file.
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+
+  server:
+    build: ./server
+    restart: unless-stopped
+    environment:
+      PORT: 5000
+      NODE_ENV: production
+      MONGODB_URI: mongodb://mongo:27017/taskmgmt
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      CLIENT_ORIGIN: http://localhost:8080
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongo
+
+  client:
+    build:
+      context: ./client
+      args:
+        # Baked into the bundle at build time; the browser calls this URL directly.
+        VITE_API_BASE_URL: http://localhost:5000/api
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - server
+
+volumes:
+  mongo-data:
